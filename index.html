@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Web Merge Solution</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f5f7fb;
+      color: #1f2937;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 48px 20px;
+    }
+    h1 {
+      margin-bottom: 8px;
+      font-size: 2rem;
+    }
+    p.subtitle {
+      margin-top: 0;
+      color: #4b5563;
+      margin-bottom: 24px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 18px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+      transition: transform 0.2s ease;
+    }
+    .card:hover { transform: translateY(-3px); }
+    .card h2 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+    }
+    .card a {
+      display: inline-block;
+      text-decoration: none;
+      color: #2563eb;
+      font-weight: 600;
+    }
+    .card a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <h1>Web Merge Solution</h1>
+    <p class="subtitle">A simple consolidated view of the listed web platforms.</p>
+    <section class="grid">
+      <article class="card">
+        <h2>Google</h2>
+        <a href="https://www.google.com" target="_blank" rel="noopener noreferrer">Open Google</a>
+      </article>
+      <article class="card">
+        <h2>Jules</h2>
+        <a href="https://www.jules.com" target="_blank" rel="noopener noreferrer">Open Jules</a>
+      </article>
+      <article class="card">
+        <h2>Codex</h2>
+        <a href="https://www.codex.com" target="_blank" rel="noopener noreferrer">Open Codex</a>
+      </article>
+      <article class="card">
+        <h2>Kimi</h2>
+        <a href="https://www.kimi2.6.com" target="_blank" rel="noopener noreferrer">Open Kimi</a>
+      </article>
+      <article class="card">
+        <h2>Google AI for Developers</h2>
+        <a href="https://ai.google.dev" target="_blank" rel="noopener noreferrer">Open Google AI for Developers</a>
+      </article>
+      <article class="card">
+        <h2>Google Shell</h2>
+        <a href="https://shell.cloud.google.com" target="_blank" rel="noopener noreferrer">Open Google Shell</a>
+      </article>
+      <article class="card">
+        <h2>Perplexity</h2>
+        <a href="https://www.perplexity.com" target="_blank" rel="noopener noreferrer">Open Perplexity</a>
+      </article>
+      <article class="card">
+        <h2>Hugging Face</h2>
+        <a href="https://huggingface.co" target="_blank" rel="noopener noreferrer">Open Hugging Face</a>
+      </article>
+    </section>
+  </main>
+</body>
+</html>
