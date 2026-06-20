@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pipeline Results</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#f5f7fb; color:#111827; margin:0; padding:20px; }
+    .card { background:#fff; border-radius:10px; padding:18px; box-shadow:0 6px 14px rgba(0,0,0,0.06); max-width:900px; margin: 0 auto; }
+    table { width:100%; border-collapse:collapse; margin-top:12px; }
+    th, td { padding:8px 10px; text-align:left; border-bottom:1px solid #e6e9ef; }
+    th { color:#374151; }
+    .ok { color:green; font-weight:600; }
+    .err { color:#b91c1c; font-weight:600; }
+    .btn { display:inline-block; padding:8px 12px; border-radius:8px; background:#2563eb; color:#fff; text-decoration:none; border:none; cursor:pointer; font-weight:600; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Pipeline Results</h1>
+    <p><a href="{{ url_for('index') }}">← Back</a></p>
+
+    {% if results %}
+      <table>
+        <thead>
+          <tr><th>#</th><th>Site</th><th>URL</th><th>Status</th><th>Time (s)</th></tr>
+        </thead>
+        <tbody>
+          {% for r in results %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td>{{ r.name }}</td>
+              <td><a href="{{ r.url }}" target="_blank">{{ r.url }}</a></td>
+              <td>
+                {% if r.status == 'error' %}
+                  <span class="err">Error: {{ r.error }}</span>
+                {% else %}
+                  <span class="ok">{{ r.status }}</span>
+                {% endif %}
+              </td>
+              <td>{{ r.elapsed }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>No run results yet. Click "Run pipeline" on the main page to execute.</p>
+    {% endif %}
+  </div>
+</body>
+</html>

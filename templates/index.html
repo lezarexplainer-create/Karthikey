@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Web Merge Solution - Python</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f5f7fb;
+      color: #1f2937;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 48px 20px;
+    }
+    h1 { margin-bottom: 8px; font-size: 2rem; }
+    p.subtitle { margin-top: 0; color: #4b5563; margin-bottom: 24px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 18px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+      transition: transform 0.2s ease;
+    }
+    .card:hover { transform: translateY(-3px); }
+    .card h2 { margin: 0 0 8px; font-size: 1rem; }
+    .card a { display: inline-block; text-decoration: none; color: #2563eb; font-weight: 600; }
+    .card a:hover { text-decoration: underline; }
+    .btn { display:inline-block; padding:8px 12px; border-radius:8px; background:#2563eb; color:#fff; text-decoration:none; border:none; cursor:pointer; font-weight:600; }
+    .btn.secondary { background:#6b7280; }
+    .pipeline { margin-top:24px; }
+    .pipeline li { margin-bottom:6px; }
+    form.inline { display:inline; margin-left:8px; }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <h1>Web Merge Solution</h1>
+    <p class="subtitle">A simple consolidated view of the listed web platforms. Add sites to a pipeline and run them sequentially.</p>
+
+    <section class="grid">
+      {% for s in services %}
+      <article class="card">
+        <h2>{{ s.name }}</h2>
+        <a href="{{ s.url }}" target="_blank" rel="noopener noreferrer">Open {{ s.name }}</a>
+
+        <form class="inline" method="post" action="{{ url_for('add_to_pipeline') }}">
+          <input type="hidden" name="name" value="{{ s.name }}" />
+          <input type="hidden" name="url" value="{{ s.url }}" />
+          <button class="btn" type="submit">Add to pipeline</button>
+        </form>
+      </article>
+      {% endfor %}
+    </section>
+
+    <section class="pipeline">
+      <h2>Your pipeline</h2>
+      {% set p = pipeline %}
+      {% if p %}
+        <ol>
+          {% for item in p %}
+            <li>
+              <strong>{{ item.name }}</strong> — <a href="{{ item.url }}" target="_blank">{{ item.url }}</a>
+              <form class="inline" method="post" action="{{ url_for('remove_from_pipeline') }}">
+                <input type="hidden" name="index" value="{{ loop.index0 }}" />
+                <button class="btn secondary" type="submit">Remove</button>
+              </form>
+            </li>
+          {% endfor %}
+        </ol>
+
+        <form method="post" action="{{ url_for('pipeline_view') }}" style="display:inline;">
+          <button class="btn" type="submit">Run pipeline (visit each site)</button>
+        </form>
+        <form method="post" action="{{ url_for('clear_pipeline') }}" style="display:inline; margin-left:8px;">
+          <button class="btn secondary" type="submit">Clear pipeline</button>
+        </form>
+        <a class="btn" href="{{ url_for('pipeline_view') }}" style="margin-left:8px; background:#059669;">View results</a>
+      {% else %}
+        <p>No sites in pipeline. Click "Add to pipeline" to start.</p>
+      {% endif %}
+    </section>
+  </main>
+</body>
+</html>
