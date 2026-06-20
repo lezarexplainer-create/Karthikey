@@ -1,9 +1,10 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, redirect, url_for, jsonify, abort
 import requests
 import time
 from pathlib import Path
 import json
 from threading import Lock
+import os
 
 app = Flask(__name__)
 app.config["JSON_SORT_KEYS"] = False
@@ -12,6 +13,9 @@ app.config["JSON_SORT_KEYS"] = False
 DATA_DIR = Path(__file__).parent
 PIPELINE_FILE = DATA_DIR / "pipeline.json"
 _file_lock = Lock()
+
+# Optional API token to protect local /api endpoints (set in env as API_TOKEN)
+API_TOKEN = os.environ.get("API_TOKEN")
 
 # Predefined services (copied from original HTML)
 SERVICES = [
@@ -39,6 +43,37 @@ def load_pipeline():
 def save_pipeline(pipeline_list):
     with _file_lock:
         PIPELINE_FILE.write_text(json.dumps(pipeline_list, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _build_proxies():
+    """Build a proxies dict for requests from environment variables.
+    Supports HTTP_PROXY, HTTPS_PROXY and SOCKS_PROXY. If SOCKS_PROXY is set
+    and no HTTP/HTTPS proxies are provided, it will be used for both.
+    """
+    proxies = {}
+    http_p = os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy")
+    https_p = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy")
+    socks_p = os.environ.get("SOCKS_PROXY") or os.environ.get("socks_proxy")
+
+    if http_p:
+        proxies["http"] = http_p
+    if https_p:
+        proxies["https"] = https_p
+    # If SOCKS provided and no explicit http/https, use it for both
+    if socks_p and not proxies:
+        proxies["http"] = socks_p
+        proxies["https"] = socks_p
+    return proxies or None
+
+
+def requests_get_with_proxies(url, timeout=10, **kwargs):
+    proxies = _build_proxies()
+    # requests will also use env vars automatically if proxies=None, but we build explicitly
+    try:
+        return requests.get(url, timeout=timeout, proxies=proxies, **kwargs)
+    except Exception:
+        # Re-raise to caller
+        raise
 
 
 @app.route("/")
@@ -96,7 +131,7 @@ def run_pipeline(pipeline_list, timeout=10):
         name = entry.get("name", url)
         start = time.time()
         try:
-            r = requests.get(url, timeout=timeout)
+            r = requests_get_with_proxies(url, timeout=timeout)
             elapsed = r.elapsed.total_seconds() if getattr(r, "elapsed", None) else round(time.time() - start, 3)
             results.append({
                 "name": name,
@@ -118,13 +153,31 @@ def run_pipeline(pipeline_list, timeout=10):
 
 
 # --- Simple JSON API for remote control (useful from Termux or other remote clients) ---
+def _require_api_token():
+    if not API_TOKEN:
+        return True
+    # Accept token in X-API-TOKEN header or Authorization: Bearer <token>
+    header = request.headers.get("X-API-TOKEN") or request.headers.get("Authorization")
+    if not header:
+        return False
+    if header.startswith("Bearer "):
+        token = header.split(" ", 1)[1].strip()
+    else:
+        token = header.strip()
+    return token == API_TOKEN
+
+
 @app.route("/api/pipeline", methods=["GET"])
 def api_get_pipeline():
+    if not _require_api_token():
+        return (jsonify({"error": "unauthorized"}), 401)
     return jsonify(load_pipeline())
 
 
 @app.route("/api/pipeline", methods=["POST"])
 def api_add_pipeline():
+    if not _require_api_token():
+        return (jsonify({"error": "unauthorized"}), 401)
     data = request.json or {}
     name = data.get("name")
     url = data.get("url")
@@ -138,6 +191,8 @@ def api_add_pipeline():
 
 @app.route("/api/pipeline/<int:index>", methods=["DELETE"])
 def api_remove_pipeline(index):
+    if not _require_api_token():
+        return (jsonify({"error": "unauthorized"}), 401)
     pipeline = load_pipeline()
     if 0 <= index < len(pipeline):
         pipeline.pop(index)
@@ -148,15 +203,69 @@ def api_remove_pipeline(index):
 
 @app.route("/api/pipeline", methods=["DELETE"])
 def api_clear_pipeline():
+    if not _require_api_token():
+        return (jsonify({"error": "unauthorized"}), 401)
     save_pipeline([])
     return jsonify({"ok": True})
 
 
 @app.route("/api/run", methods=["POST"])
 def api_run_pipeline():
+    if not _require_api_token():
+        return (jsonify({"error": "unauthorized"}), 401)
     pipeline = load_pipeline()
     results = run_pipeline(pipeline)
     return jsonify(results)
+
+
+# --- AI agent endpoint skeleton (requires AI_API_URL and AI_API_KEY set in env) ---
+_agent_last_run = {"ts": 0, "count": 0}
+_AGENT_RATE_LIMIT = int(os.environ.get("AGENT_RATE_LIMIT", "60"))  # requests per minute
+
+
+@app.route("/api/agent", methods=["POST"])
+def api_agent():
+    if not _require_api_token():
+        return (jsonify({"error": "unauthorized"}), 401)
+
+    data = request.json or {}
+    query = data.get("query")
+    if not query:
+        return jsonify({"error": "missing query"}), 400
+
+    # basic rate limiting
+    now = int(time.time())
+    if now - _agent_last_run["ts"] >= 60:
+        _agent_last_run["ts"] = now
+        _agent_last_run["count"] = 0
+    _agent_last_run["count"] += 1
+    if _agent_last_run["count"] > _AGENT_RATE_LIMIT:
+        return jsonify({"error": "rate limit exceeded"}), 429
+
+    # read provider config from env
+    api_url = os.environ.get("AI_API_URL")
+    api_key = os.environ.get("AI_API_KEY")
+    if not api_url or not api_key:
+        return jsonify({"error": "AI API not configured on server (set AI_API_URL and AI_API_KEY)"}), 500
+
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    # payload shape may differ by provider. This is a minimal example and may need adapting.
+    payload = {"input": query}
+
+    # Use proxies for provider requests as well (if configured)
+    proxies = _build_proxies()
+
+    try:
+        r = requests.post(api_url, json=payload, headers=headers, timeout=60, proxies=proxies)
+        r.raise_for_status()
+        # Return raw provider response under provider_response
+        try:
+            body = r.json()
+        except Exception:
+            body = {"text": r.text}
+        return jsonify({"provider_response": body}), 200
+    except requests.RequestException as e:
+        return jsonify({"error": "provider request failed", "detail": str(e)}), 502
 
 
 if __name__ == "__main__":
@@ -167,4 +276,4 @@ if __name__ == "__main__":
         save_pipeline([])
 
     # Bind to all interfaces so you can access from other devices including Termux remote control
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "5000")), debug=False)
